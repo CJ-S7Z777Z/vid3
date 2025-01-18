@@ -2,16 +2,13 @@
 import os
 import psycopg2
 import yt_dlp
-import telegram
 import asyncio
-import ssl
-import urllib.parse
 import logging
+import uuid
+import telegram
 from datetime import datetime
 from telegram import (
     Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     KeyboardButton,
 )
@@ -22,10 +19,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
     ConversationHandler,
-    CallbackQueryHandler,
 )
-import aiohttp
-import requests
 
 # Настройка логирования
 logging.basicConfig(
@@ -50,7 +44,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # Путь к файлу cookies для Instagram
-INSTAGRAM_COOKIES_FILE = "instagram_cookies.txt"  # Убедитесь, что этот файл существует и содержит актуальные cookies
+INSTAGRAM_COOKIES_FILE = "instagram_cookies.txt"  # Убедитесь, что этот файл существует и правильно отформатирован
 
 # Функция для получения подключения к базе данных
 def get_db_connection():
@@ -248,7 +242,7 @@ async def add_admin_id_received(update: Update, context: ContextTypes.DEFAULT_TY
             )
     except ValueError:
         await send_message_with_retry(
-            update, "Неверный формат ID пользователя. Введите число."
+            update, "❌ Неверный формат ID пользователя. Введите число."
         )
         return WAITING_ADMIN_ID
     await start(update, context)
@@ -260,10 +254,10 @@ async def remove_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if chat_id in ADMIN_CHAT_IDS:
         admins = get_admins()
         if not admins:
-            await send_message_with_retry(update, "Нет добавленных администраторов.")
+            await send_message_with_retry(update, "❌ Нет добавленных администраторов.")
             return ConversationHandler.END
 
-        message = "Добавленные администраторы:\n\n"
+        message = "📜 **Добавленные администраторы:**\n\n"
         for i, admin in enumerate(admins, 1):
             message += f"{i}. ID: {admin}\n"
 
@@ -273,13 +267,13 @@ async def remove_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         await send_message_with_retry(
             update,
-            f"{message}\nПожалуйста, отправьте ID администратора, которого вы хотите удалить:",
+            f"{message}\n❓ Пожалуйста, отправьте ID администратора, которого вы хотите удалить:",
             reply_markup=reply_markup,
         )
         return WAITING_REMOVE_ADMIN_ID
     else:
         await send_message_with_retry(
-            update, "Команда доступна только для главных администраторов."
+            update, "❌ Команда доступна только для главных администраторов."
         )
         return ConversationHandler.END
 
@@ -300,7 +294,7 @@ async def remove_admin_id_received(update: Update, context: ContextTypes.DEFAULT
             )
     except ValueError:
         await send_message_with_retry(
-            update, "Неверный формат ID пользователя. Введите число."
+            update, "❌ Неверный формат ID пользователя. Введите число."
         )
         return WAITING_REMOVE_ADMIN_ID
     await start(update, context)
@@ -312,34 +306,31 @@ async def show_admins(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id in ADMIN_CHAT_IDS:
         admins = get_admins()
         if not admins:
-            await send_message_with_retry(update, "Нет добавленных администраторов.")
+            await send_message_with_retry(update, "❌ Нет добавленных администраторов.")
             return
 
-        message = "Добавленные администраторы:\n\n"
+        message = "📜 **Добавленные администраторы:**\n\n"
         for i, admin in enumerate(admins, 1):
             message += f"{i}. ID: {admin}\n"
 
         await send_message_with_retry(update, message)
     else:
         await send_message_with_retry(
-            update, "Команда доступна только для главных администраторов."
+            update, "❌ Команда доступна только для главных администраторов."
         )
 
-# Функция для удаления видео после таймаута
-async def delete_video_after_timeout(video_path, timeout):
+# Функция для удаления видео после отправки
+async def delete_video(video_path):
     try:
-        await asyncio.sleep(timeout)
         if os.path.exists(video_path):
             os.remove(video_path)
-            # Удаляем папку пользователя, если она пуста
             user_video_dir = os.path.dirname(video_path)
             try:
-                os.rmdir(user_video_dir)
+                os.rmdir(user_video_dir)  # Удалить папку, если она пуста
             except OSError:
                 pass  # Папка не пуста
-    except asyncio.CancelledError:
-        # Задача была отменена, ничего не делаем
-        pass
+    except Exception as e:
+        logging.error(f"Ошибка при удалении видео {video_path}: {e}")
 
 # Обработка сообщений с ссылками на видео
 async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -363,56 +354,74 @@ async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         for domain in ["tiktok.com", "youtube.com", "youtu.be", "vk.com", "instagram.com"]
     ):
         # Отправляем сообщение "Идет загрузка..."
-        loading_message = await send_message_with_retry(update, "Идет загрузка...")
+        loading_message = await send_message_with_retry(update, "🔄 Идет загрузка видео...")
         try:
             # Создаем директорию для пользователя
             user_video_dir = f"Video{user_id}"
-            if not os.path.exists(user_video_dir):
-                os.makedirs(user_video_dir)
+            os.makedirs(user_video_dir, exist_ok=True)
+
+            # Генерируем уникальное имя файла
+            unique_id = uuid.uuid4().hex
+            ydl_output_template = f"{user_video_dir}/downloaded_video_{unique_id}.%(ext)s"
 
             # Определяем опции для yt_dlp
             ydl_options = {
                 "format": "best",
-                "outtmpl": f"{user_video_dir}/downloaded_video.%(ext)s",
+                "outtmpl": ydl_output_template,
                 "quiet": True,
                 "socket_timeout": 600,
                 "geo_bypass": True,
                 "geo_bypass_country": "DE",
+                "no_warnings": True,
             }
 
             # Проверяем, является ли ссылка Instagram
             if "instagram.com" in url:
-                ydl_options["cookiefile"] = INSTAGRAM_COOKIES_FILE  # Убедитесь, что файл существует
+                if os.path.exists(INSTAGRAM_COOKIES_FILE):
+                    ydl_options["cookiefile"] = INSTAGRAM_COOKIES_FILE
+                else:
+                    await send_message_with_retry(
+                        update,
+                        "❌ Файл cookies для Instagram не найден. Пожалуйста, убедитесь, что файл 'instagram_cookies.txt' существует и правильно отформатирован.",
+                    )
+                    await loading_message.delete()
+                    return
 
             with yt_dlp.YoutubeDL(ydl_options) as ydl:
                 result = ydl.extract_info(url, download=True)
                 video_file = ydl.prepare_filename(result)
 
-            await asyncio.sleep(1)
             await loading_message.delete()
 
-            # Отправляем видео пользователю
+            # Проверяем, существует ли файл
             if os.path.exists(video_file):
                 with open(video_file, "rb") as video:
                     await context.bot.send_video(chat_id=chat_id, video=video)
             else:
-                await send_message_with_retry(update, "Не удалось найти скачанное видео.")
+                await send_message_with_retry(update, "❌ Не удалось найти скачанное видео.")
+                return
 
             # Увеличиваем счетчик скачиваний
             increment_daily_download_count(user_id)
 
-            # Устанавливаем таймер для удаления видео через 10 минут (600 секунд)
-            DELETE_TIMEOUT = 600  # 10 минут
-            asyncio.create_task(delete_video_after_timeout(video_file, DELETE_TIMEOUT))
+            # Удаляем видео после успешной отправки
+            asyncio.create_task(delete_video(video_file))
 
-        except Exception as e:
+        except yt_dlp.utils.DownloadError as e:
+            await loading_message.delete()
+            error_message = str(e).splitlines()[0]  # Получаем первую строку ошибки
             await send_message_with_retry(
-                update, f"Ошибка при скачивании видео: {str(e)}"
+                update, f"❌ Ошибка при скачивании видео: {error_message}"
+            )
+        except Exception as e:
+            await loading_message.delete()
+            await send_message_with_retry(
+                update, f"❌ Произошла непредвиденная ошибка: {str(e)}"
             )
     else:
         await send_message_with_retry(
             update,
-            "Пожалуйста, отправьте ссылку на видео из TikTok, YouTube, VK или Instagram.",
+            "⚠️ Пожалуйста, отправьте ссылку на видео из TikTok, YouTube, VK или Instagram.",
         )
 
 # Функция отмены текущего разговора
@@ -422,7 +431,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Обработка текстовых сообщений (кнопок)
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
     text = update.message.text.strip()
     if text == "Добавить администратора":
         return await add_admin_start(update, context)
