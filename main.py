@@ -204,14 +204,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
            await send_message_with_retry(
                update,
-               "Привет! Вы можете отправить ссылку на видео, и я скачам его для вас.",
+               "Привет! Я помогу скачивать видео из TikTok, YouTube, VK клипы.",
                reply_markup=reply_markup,
            )
        else:
            # Пользователь не администратор, предоставляем функцию скачивания видео
            await send_message_with_retry(
                update,
-               "Отправьте ссылку на видео из TikTok, YouTube, VK или Instagram, и я скачам его для вас.",
+               "Отправьте ссылку на видео из TikTok, YouTube, VK или Instagram, и я скачаю его для вас.",
            )
        return ConversationHandler.END
 
