@@ -12,5 +12,5 @@ www.instagram.com    TRUE    /    FALSE    0    ig_nrcb    1
 www.instagram.com    TRUE    /    FALSE    0    csrftoken    MPdTc638ybmIsT6I4aU4vd8u0wsro4r2
 www.instagram.com    TRUE    /    FALSE    0    ds_user_id    71706757200
 www.instagram.com    TRUE    /    FALSE    0    sessionid    71706757200%3ApjhLGRTS4hac4F%3A4%3AAYdcJpim5tRWhw4hz7r3omEpfEOTKv0JcCdOp2MxMw
-www.instagram.com    TRUE    /    FALSE    0    rur    "LDC054717067572000541768725026:01f70e7c12b78df18e51fcfa061da30301e7b119f24125078f978aff72874de2e82c9b2a"
+www.instagram.com    TRUE    /    FALSE    0    rur    LDC054717067572000541768725026:01f70e7c12b78df18e51fcfa061da30301e7b119f24125078f978aff72874de2e82c9b2a
 www.instagram.com    TRUE    /    FALSE    0    wd    873x1002
