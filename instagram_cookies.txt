@@ -1,5 +1,5 @@
 # Netscape HTTP Cookie File
-# https://curl.se/docs/http-cookies.html
+# https://instagram.com/accounts/emailsignup/
 # Эта сессия cookies была создана автоматически.
 
 .instagram.com TRUE / FALSE 2147483647 ig_did E2ED7310-7402-4895-8EDF-D4B82D421081
