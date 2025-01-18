@@ -5,8 +5,8 @@ import yt_dlp
 import asyncio
 import logging
 import uuid
-import telegram
 from datetime import datetime
+import telegram
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -42,9 +42,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Токен бота
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-# Путь к файлу cookies для Instagram
-INSTAGRAM_COOKIES_FILE = "instagram_cookies.txt"  # Убедитесь, что этот файл существует и правильно отформатирован
 
 # Функция для получения подключения к базе данных
 def get_db_connection():
@@ -171,7 +168,8 @@ async def send_message_with_retry(
                 return await update.message.reply_text(text)
         except (telegram.error.NetworkError, telegram.error.Timeout) as e:
             if attempt == max_retries - 1:
-                raise e
+                await update.message.reply_text("❌ Не удалось отправить сообщение. Попробуйте позже.")
+                return None
             await asyncio.sleep(1)
 
 # Список тарифов (можно адаптировать или удалить, если не требуется)
@@ -221,7 +219,7 @@ async def add_admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return WAITING_ADMIN_ID
     else:
         await send_message_with_retry(
-            update, "Команда доступна только для главных администраторов."
+            update, "❌ Команда доступна только для главных администраторов."
         )
         return ConversationHandler.END
 
@@ -377,12 +375,15 @@ async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             # Проверяем, является ли ссылка Instagram
             if "instagram.com" in url:
-                if os.path.exists(INSTAGRAM_COOKIES_FILE):
-                    ydl_options["cookiefile"] = INSTAGRAM_COOKIES_FILE
+                instagram_username = os.getenv("INSTAGRAM_USERNAME")
+                instagram_password = os.getenv("INSTAGRAM_PASSWORD")
+                if instagram_username and instagram_password:
+                    ydl_options["username"] = instagram_username
+                    ydl_options["password"] = instagram_password
                 else:
                     await send_message_with_retry(
                         update,
-                        "❌ Файл cookies для Instagram не найден. Пожалуйста, убедитесь, что файл 'instagram_cookies.txt' существует и правильно отформатирован.",
+                        "❌ Для скачивания из Instagram необходимы учетные данные. Пожалуйста, установите переменные окружения INSTAGRAM_USERNAME и INSTAGRAM_PASSWORD.",
                     )
                     await loading_message.delete()
                     return
@@ -451,6 +452,9 @@ def main():
     application = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
+        .read_timeout(20)
+        .write_timeout(20)
+        .connect_timeout(20)
         .build()
     )
 
