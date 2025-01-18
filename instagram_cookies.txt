@@ -1,3 +1,7 @@
+# Netscape HTTP Cookie File
+# https://curl.se/docs/http-cookies.html
+# Эта сессия cookies была создана автоматически.
+
 .instagram.com TRUE / FALSE 2147483647 ig_did E2ED7310-7402-4895-8EDF-D4B82D421081
 .instagram.com TRUE / FALSE 2147483647 datr yFqLZ_4X1FOX6YNhlbsgmpEG
 .instagram.com TRUE / FALSE 2147483647 ps_l 1
